@@ -9,7 +9,11 @@ set(SRC src)
 set(BUILD build)
 
 add_executable(shadertest WIN32
-	${SRC}/main.cpp)
+	${SRC}/main.cpp
+	${SRC}/ST_Window.cpp
+	${SRC}/ST_Tile.cpp
+	${SRC}/ST_App.cpp
+	${SRC}/ST_WinError.cpp)
 
 target_include_directories(shadertest PUBLIC 
 	${INC})
