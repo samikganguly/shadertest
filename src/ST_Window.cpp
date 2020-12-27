@@ -22,6 +22,12 @@ namespace shadertest {
 		case WM_DESTROY:
 			PostQuitMessage(0);
 			return 0;
+		case WM_SIZE:
+			{
+				Window *self = get_window(hWnd);
+				self->on_resize(wParam, static_cast<int>(LOWORD(lParam)), static_cast<int>(HIWORD(lParam)));
+			}
+			return 0;
 		case WM_PAINT:
 			{
 				PAINTSTRUCT ps;
@@ -48,7 +54,7 @@ namespace shadertest {
 		m_class.lpszClassName = m_name.c_str();
 		m_class_handle = RegisterClass(&m_class);
 		if(m_class_handle == 0) {
-			throw WinError(L"GLWindowClass: Failed to register window class '" + m_name + L"'");
+			throw WinError(L"WindowClass: Failed to register window class '" + m_name + L"'");
 		}
 	}
 	
@@ -71,6 +77,13 @@ namespace shadertest {
 	HINSTANCE WindowClass::module() const {
 		return m_module;
 	}
+	
+	Child::Child() : win(nullptr), h_expand(false), v_expand(false) {}
+	
+	Child::Child(Window *child_window, bool h_expand, bool v_expand)
+	: win(child_window),
+	  h_expand(h_expand),
+	  v_expand(v_expand) {}
 
 	std::unique_ptr<WindowClass> Window::s_class = nullptr;
 
@@ -93,7 +106,7 @@ namespace shadertest {
 			this
 		);
 		if(m_handle == nullptr) {
-			throw WinError(L"GLWindow: Failed to create new window with name '" + m_name + L"'");
+			throw WinError(L"Window: Failed to create new window with name '" + m_name + L"'");
 		}
 	}
 
@@ -123,16 +136,42 @@ namespace shadertest {
 		return m_parent;
 	}
 	
+	std::pair<int, int> Window::size() const {
+		RECT sz;
+		if(not GetClientRect(m_handle, &sz)) {
+			throw WinError(L"Window: Failed to fetch size of the window '" + m_name + L"'");
+		}
+		return {sz.right - sz.left, sz.bottom - sz.top};
+	}
+	
 	void Window::show(int state) {
 		ShowWindow(m_handle, state);
 	}
 	
 	void Window::move(int x, int y, int w, int h, bool repaint) {
-		MoveWindow(m_handle, x, y, w, h, repaint);
+		if(not MoveWindow(m_handle, x, y, w, h, repaint)) {
+			throw WinError(L"Window: Failed to move the window '" + m_name + L"'");
+		}
+	}
+	
+	void Window::set_child(Window *child, bool h_expand, bool v_expand) {
+		m_child.win = child;
+		m_child.h_expand = h_expand;
+		m_child.v_expand = v_expand;
 	}
 	
 	void Window::on_paint(HDC dc, PAINTSTRUCT& ps) {
 		FillRect(dc, &ps.rcPaint, reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1));
+	}
+	
+	void Window::on_resize(WPARAM type, int new_width, int new_height) {
+		if(m_child.win) {
+			int w = 0, h = 0;
+			std::tie(w, h) = m_child.win->size();
+			w = m_child.h_expand ? std::max(new_width, w) : w;
+			h = m_child.v_expand ? std::max(new_height, h) : h;
+			m_child.win->move(0, 0, w, h);
+		}
 	}
 
 }
