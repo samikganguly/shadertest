@@ -82,6 +82,13 @@ namespace shadertest {
 				}
 			}
 			return 0;
+		case WM_SETCURSOR:
+			if(LOWORD(lParam) == HTCLIENT) {
+				Window *self = get_window(hWnd);
+				self->assign_cursor();
+				return 0;
+			}
+			break;
 		}
 		return DefWindowProc(hWnd, uMsg, wParam, lParam);
 	}
@@ -128,6 +135,14 @@ namespace shadertest {
 	  v_expand(v_expand) {}
 
 	std::unique_ptr<WindowClass> Window::s_class = nullptr;
+	
+	Window::Window() noexcept
+	: m_min_width(-1),
+	  m_min_height(-1),
+	  m_drag_enabled(false),
+	  m_has_focus(false),
+	  m_parent(nullptr),
+	  m_cursor(nullptr) {}
 
 	Window::Window(const std::wstring& n, App& app, DWORD style, Window *parent)
 	: m_name(n),
@@ -135,7 +150,8 @@ namespace shadertest {
 	  m_min_height(10),
 	  m_drag_enabled(false),
 	  m_has_focus(false),
-	  m_parent(parent) {
+	  m_parent(parent),
+	  m_cursor(nullptr) {
 		if(s_class == nullptr) {
 			s_class = std::make_unique<WindowClass>(app.module());
 		}
@@ -154,6 +170,17 @@ namespace shadertest {
 		if(m_handle == nullptr) {
 			throw WinError(L"Window: Failed to create new window with name '" + m_name + L"'");
 		}
+		set_cursor(IDC_ARROW);
+	}
+	
+	Window::Window(Window&& other) : Window() {
+		std::swap(*this, other);
+	}
+	
+	Window& Window::operator =(Window&& other) {
+		Window tmp(std::move(other));
+		std::swap(*this, tmp);
+		return *this;
 	}
 
 	Window::~Window() {
@@ -190,7 +217,10 @@ namespace shadertest {
 	RECT Window::bound() const {
 		RECT sz;
 		if(not GetClientRect(m_handle, &sz)) {
-			throw WinError(L"Window: Failed to fetch size of the window '" + m_name + L"'");
+			throw WinError(L"Window: Failed to fetch bounds of the window '" + m_name + L"'");
+		}
+		if(m_parent) {
+			MapWindowPoints(m_handle, m_parent->m_handle, reinterpret_cast<LPPOINT>(&sz), 2);
 		}
 		return sz;
 	}
@@ -236,6 +266,19 @@ namespace shadertest {
 		m_child.win = child;
 		m_child.h_expand = h_expand;
 		m_child.v_expand = v_expand;
+	}
+	
+	void Window::assign_cursor() {
+		if(m_cursor) {
+			SetCursor(m_cursor);
+		}
+	}
+	
+	void Window::set_cursor(LPCTSTR code) {
+		m_cursor = LoadCursor(nullptr, code);
+		if(not m_cursor) {
+			throw WinError(L"Window: Failed to load cursor '" + std::wstring(code) + L"'");
+		}
 	}
 	
 	std::pair<int, int> Window::min_size() const {

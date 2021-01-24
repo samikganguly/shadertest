@@ -3,9 +3,14 @@
 namespace shadertest {
 	
 	SplitBox::Spacer::Spacer(size_t index, SplitBox *parent, Window *left, Window *right, App& app)
-	: Tile(RGB(128, 128, 128), L"Spacer_" + std::to_wstring(index), app, parent),
+	: Window(L"Spacer_" + std::to_wstring(index), app, WS_CHILD, parent),
 	  m_left(left),
-	  m_right(right) { enable_drag(); }
+	  m_right(right) {
+		if(parent->resizable()) {
+			set_cursor(parent->orientation() == Orientation::HORIZONTAL ? IDC_SIZEWE : IDC_SIZENS);
+		}
+		enable_drag();
+	}
 	  
 	Window *SplitBox::Spacer::left() const {
 		return m_left;
@@ -17,20 +22,21 @@ namespace shadertest {
 	
 	void SplitBox::Spacer::on_drag(int x, int y) {
 		SplitBox *p = dynamic_cast<SplitBox *>(parent());
-		if(p) {
+		if(p && p->resizable()) {
 			RECT s = bound();
 			RECT l = left()->bound();
 			RECT r = right()->bound();
+			x += s.left;
+			y += s.top;
 			int lw = 0, lh = 0, rw = 0, rh = 0;
 			std::tie(lw, lh) = left()->min_size();
 			std::tie(rw, rh) = right()->min_size();
-			log_file << "dragging: " << x << "," << y << " " << l.left + lw << "," << (x + p->spacing() + rw) << "," << r.right << "\n";
-			if(p->orientation() == Orientation::HORIZONTAL && x >= (l.left + lw)  && (x + p->spacing() + rw) <= r.right) {
-				move(x, s.top, s.bottom - s.top, s.right - s.left);
+			if(p->orientation() == Orientation::HORIZONTAL) {
+				move(x, s.top, s.right - s.left, s.bottom - s.top);
 				left()->move(l.left, l.top, x - l.left, l.bottom - l.top);
 				right()->move(x + p->spacing(), r.top, r.right - x - p->spacing(), r.bottom - r.top);
-			} else if(p->orientation() == Orientation::VERTICAL && y >= (l.top + lh) && (y + p->spacing() + rh) <= r.bottom){
-				move(s.left, y, s.bottom - s.top, s.right - s.left);
+			} else if(p->orientation() == Orientation::VERTICAL) {
+				move(s.left, y, s.right - s.left, s.bottom - s.top);
 				left()->move(l.left, l.top, l.right - l.left, y - l.top);
 				right()->move(r.left, y + p->spacing(), r.right - r.left, r.bottom - y - p->spacing());
 			}
@@ -64,7 +70,7 @@ namespace shadertest {
 		if(child_window) {
 			m_children.emplace_back(child_window, h_expand, v_expand);
 			if(m_children.size() > 1) {
-				m_spacers.emplace_back(new Spacer(m_children.size() - 1, this, m_children.rbegin()->win, (m_children.rbegin() + 1)->win, *m_app_ptr));
+				m_spacers.emplace_back(new Spacer(m_children.size() - 1, this, (m_children.rbegin() + 1)->win, m_children.rbegin()->win, *m_app_ptr));
 			}
 		}
 	}

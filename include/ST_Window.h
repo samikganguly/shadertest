@@ -45,6 +45,10 @@ namespace shadertest {
 	class Window {
 	public:
 		Window(const std::wstring& name, App& app, DWORD style = WS_OVERLAPPEDWINDOW, Window *parent = nullptr);
+		
+		Window(Window&& other);
+		
+		Window& operator =(Window&& other);
 
 		virtual ~Window();
 
@@ -80,6 +84,10 @@ namespace shadertest {
 		
 		void set_child(Window *child, bool h_expand, bool v_expand);
 		
+		void set_cursor(LPCTSTR system_cursor_code);
+		
+		void assign_cursor();
+		
 		virtual std::pair<int, int> min_size() const;
 		
 		virtual void show(int state = SW_SHOW);
@@ -104,7 +112,10 @@ namespace shadertest {
 		bool									m_has_focus;
 		Window									*m_parent;
 		Child									m_child;
+		HCURSOR									m_cursor;
 		static std::unique_ptr<WindowClass>		s_class;
+		
+		Window() noexcept;
 	};
 
 }

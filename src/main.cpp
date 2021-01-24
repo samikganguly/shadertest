@@ -10,7 +10,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR pCmdLine, int nCmdShow
 		shadertest::App app(hInstance);
 		shadertest::Window w(L"Tile Test", app);
 		shadertest::SplitBox sp1(shadertest::Orientation::HORIZONTAL, L"HBox1", app, false, &w);
-		shadertest::SplitBox sp2(shadertest::Orientation::VERTICAL, L"HBox2", app, false, &sp1);
+		shadertest::SplitBox sp2(shadertest::Orientation::VERTICAL, L"HBox2", app, true, &sp1);
 		shadertest::Tile t1(RGB(255, 0, 0), L"t1", app, &sp1);
 		shadertest::Tile t2(RGB(0, 255, 0), L"t2", app, &sp2);
 		shadertest::Tile t3(RGB(128, 255, 0), L"t3", app, &sp2);

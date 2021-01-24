@@ -35,7 +35,7 @@ namespace shadertest {
 		
 		void on_resize(WPARAM type, int new_width, int new_height) override;
 	private:
-		class Spacer : public Tile {
+		class Spacer : public Window {
 		public:
 			Spacer(size_t index, SplitBox *parent, Window *left, Window *right, App& app);
 			
