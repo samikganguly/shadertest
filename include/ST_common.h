@@ -12,8 +12,16 @@
 #include <ciso646>
 #include <tuple>
 #include <algorithm>
+#include <fstream>
 
 #define NOMINMAX
 #include <windows.h>
+
+namespace shadertest {
+	
+	extern std::ofstream log_file;
+	extern std::ofstream wlog_file;
+	
+}
 
 #endif

@@ -1,5 +1,6 @@
 #include <ST_Window.h>
 #include <ST_WinError.h>
+#include <WindowsX.h>
 
 namespace shadertest {
 	
@@ -15,6 +16,7 @@ namespace shadertest {
 	}
 	
 	static LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+		int mouse_btn = 0, x = 0, y = 0;
 		switch(uMsg) {
 		case WM_CREATE:
 			store_window(hWnd, lParam);
@@ -38,6 +40,46 @@ namespace shadertest {
 				Window *self = get_window(hWnd);
 				self->on_paint(hdc, ps);
 				EndPaint(hWnd, &ps);
+			}
+			return 0;
+		case WM_LBUTTONDOWN:
+			mouse_btn = 1;
+		case WM_RBUTTONDOWN:
+			mouse_btn = 2;
+			x = GET_X_LPARAM(lParam);
+			y = GET_Y_LPARAM(lParam);
+			{
+				Window *self = get_window(hWnd);
+				if(self->drag_enabled()) {
+					self->grab_focus();
+				}
+				self->on_mouse_down(mouse_btn, x, y);
+			}
+			return 0;
+		case WM_LBUTTONUP:
+			mouse_btn = 1;
+		case WM_RBUTTONUP:
+			mouse_btn = 2;
+			x = GET_X_LPARAM(lParam);
+			y = GET_Y_LPARAM(lParam);
+			{
+				Window *self = get_window(hWnd);
+				if(self->drag_enabled() && self->has_focus()) {
+					self->release_focus();
+				}
+				self->on_mouse_up(mouse_btn, x, y);
+			}
+			return 0;
+		case WM_MOUSEMOVE:
+			x = GET_X_LPARAM(lParam);
+			y = GET_Y_LPARAM(lParam);
+			{
+				Window *self = get_window(hWnd);
+				if(self->drag_enabled() && self->has_focus()) {
+					self->on_drag(x, y);
+				} else {
+					self->on_mouse_move(x, y);
+				}
 			}
 			return 0;
 		}
@@ -89,6 +131,10 @@ namespace shadertest {
 
 	Window::Window(const std::wstring& n, App& app, DWORD style, Window *parent)
 	: m_name(n),
+	  m_min_width(10),
+	  m_min_height(10),
+	  m_drag_enabled(false),
+	  m_has_focus(false),
 	  m_parent(parent) {
 		if(s_class == nullptr) {
 			s_class = std::make_unique<WindowClass>(app.module());
@@ -99,7 +145,7 @@ namespace shadertest {
 			m_name.c_str(),
 			style,
 			0, 0,
-			10, 10,
+			m_min_width, m_min_height,
 			(m_parent ? m_parent->handle() : nullptr),
 			nullptr,
 			s_class->module(),
@@ -137,15 +183,47 @@ namespace shadertest {
 	}
 	
 	std::pair<int, int> Window::size() const {
+		RECT sz = bound();
+		return {sz.right - sz.left, sz.bottom - sz.top};
+	}
+	
+	RECT Window::bound() const {
 		RECT sz;
 		if(not GetClientRect(m_handle, &sz)) {
 			throw WinError(L"Window: Failed to fetch size of the window '" + m_name + L"'");
 		}
-		return {sz.right - sz.left, sz.bottom - sz.top};
+		return sz;
 	}
 	
-	void Window::show(int state) {
-		ShowWindow(m_handle, state);
+	void Window::set_min_size(int width, int height) {
+		m_min_width = width;
+		m_min_height = height;
+	}
+		
+	void Window::enable_drag() {
+		m_drag_enabled = true;
+	}
+	
+	void Window::disable_drag() {
+		m_drag_enabled = false;
+	}
+	
+	bool Window::drag_enabled() const {
+		return m_drag_enabled;
+	}
+	
+	void Window::grab_focus() {
+		SetCapture(m_handle);
+		m_has_focus = true;
+	}
+	
+	void Window::release_focus() {
+		ReleaseCapture();
+		m_has_focus = false;
+	}
+	
+	bool Window::has_focus() const {
+		return m_has_focus;
 	}
 	
 	void Window::move(int x, int y, int w, int h, bool repaint) {
@@ -160,6 +238,21 @@ namespace shadertest {
 		m_child.v_expand = v_expand;
 	}
 	
+	std::pair<int, int> Window::min_size() const {
+		int w = 0, h = 0;
+		if(m_child.win) {
+			std::tie(w, h) = m_child.win->min_size();
+		}
+		return {std::max(m_min_width, w), std::max(m_min_height, h)};
+	}
+	
+	void Window::show(int state) {
+		if(m_child.win) {
+			m_child.win->show();
+		}
+		ShowWindow(m_handle, state);
+	}
+	
 	void Window::on_paint(HDC dc, PAINTSTRUCT& ps) {
 		FillRect(dc, &ps.rcPaint, reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1));
 	}
@@ -167,11 +260,19 @@ namespace shadertest {
 	void Window::on_resize(WPARAM type, int new_width, int new_height) {
 		if(m_child.win) {
 			int w = 0, h = 0;
-			std::tie(w, h) = m_child.win->size();
+			std::tie(w, h) = m_child.win->min_size();
 			w = m_child.h_expand ? std::max(new_width, w) : w;
 			h = m_child.v_expand ? std::max(new_height, h) : h;
 			m_child.win->move(0, 0, w, h);
 		}
 	}
+	
+	void Window::on_mouse_down(int mouse_button, int x, int y) {}
+	
+	void Window::on_mouse_up(int mouse_button, int x, int y) {}
+	
+	void Window::on_mouse_move(int x, int y) {}
+	
+	void Window::on_drag(int x, int y) {}
 
 }

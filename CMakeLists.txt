@@ -14,7 +14,8 @@ add_executable(shadertest WIN32
 	${SRC}/ST_Tile.cpp
 	${SRC}/ST_SplitBox.cpp
 	${SRC}/ST_App.cpp
-	${SRC}/ST_WinError.cpp)
+	${SRC}/ST_WinError.cpp
+	${SRC}/ST_common.cpp)
 
 target_include_directories(shadertest PUBLIC 
 	${INC})

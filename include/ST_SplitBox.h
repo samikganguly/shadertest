@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <ST_Window.h>
+#include <ST_Tile.h>
 
 namespace shadertest {
 	
@@ -22,11 +23,38 @@ namespace shadertest {
 		
 		Window *get_child(size_t index);
 		
+		void remove_child(size_t index);
+		
+		int spacing() const;
+		
+		void set_spacing(int s);
+		
+		std::pair<int, int> min_size() const override;
+		
+		void show(int state) override;
+		
 		void on_resize(WPARAM type, int new_width, int new_height) override;
 	private:
-		Orientation			m_orient;
-		bool				m_resizable;
-		std::vector<Child>	m_children;
+		class Spacer : public Tile {
+		public:
+			Spacer(size_t index, SplitBox *parent, Window *left, Window *right, App& app);
+			
+			Window *left() const;
+			
+			Window *right() const;
+			
+			void on_drag(int x, int y) override;
+		private:
+			Window		*m_left;
+			Window		*m_right;
+		};
+	
+		Orientation								m_orient;
+		int										m_spacing;
+		bool									m_resizable;
+		std::vector<Child>						m_children;
+		std::vector<std::unique_ptr<Spacer>>	m_spacers;
+		App										*m_app_ptr;
 	};
 	
 }
