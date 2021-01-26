@@ -11,9 +11,9 @@ namespace shadertest {
 
 	class WindowClass {
 	public:
-		WindowClass(HINSTANCE hInstance, const std::wstring& name = L"ShaderWindowClass");
+		WindowClass(App& app, const std::wstring& name = L"ShaderWindowClass");
 	
-		WindowClass(HINSTANCE hInstance, WNDPROC proc, const std::wstring& name = L"ShaderWindowClass");
+		WindowClass(App& app, WNDPROC proc, const std::wstring& name = L"ShaderWindowClass");
 		
 		virtual ~WindowClass();
 		
@@ -21,10 +21,12 @@ namespace shadertest {
 		
 		ATOM handle() const;
 
-		HINSTANCE module() const;
+		App& app();
+		
+		void register_exception(const std::exception_ptr& ex);
 	private:
 		WNDCLASS		m_class;
-		HINSTANCE		m_module;
+		App				*m_app;
 		std::wstring	m_name;
 		ATOM			m_class_handle;
 	};
@@ -51,6 +53,8 @@ namespace shadertest {
 		Window& operator =(Window&& other);
 
 		virtual ~Window();
+		
+		void register_exception(const std::exception_ptr& ex);
 
 		const std::wstring& name() const;
 

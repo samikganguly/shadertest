@@ -20,7 +20,7 @@
 namespace shadertest {
 	
 	extern std::ofstream log_file;
-	extern std::ofstream wlog_file;
+	extern std::wofstream wlog_file;
 	
 }
 

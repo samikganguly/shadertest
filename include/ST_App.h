@@ -2,6 +2,7 @@
 #define APP_H
 
 #include <ST_common.h>
+#include <exception>
 
 namespace shadertest {
 	
@@ -12,8 +13,11 @@ namespace shadertest {
 		HINSTANCE module() const;
 	
 		void start();
+		
+		void register_exception(const std::exception_ptr& ex);
 	private:
-		HINSTANCE	m_module;
+		HINSTANCE			m_module;
+		std::exception_ptr	m_err_ptr;
 	
 		void start_msg_loop();
 	};

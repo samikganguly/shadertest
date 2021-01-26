@@ -16,90 +16,95 @@ namespace shadertest {
 	}
 	
 	static LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-		int mouse_btn = 0, x = 0, y = 0;
-		switch(uMsg) {
-		case WM_CREATE:
-			store_window(hWnd, lParam);
-			return TRUE;
-		case WM_DESTROY:
-			PostQuitMessage(0);
-			return 0;
-		case WM_SIZE:
-			{
-				Window *self = get_window(hWnd);
-				self->on_resize(wParam, static_cast<int>(LOWORD(lParam)), static_cast<int>(HIWORD(lParam)));
-			}
-			return 0;
-		case WM_PAINT:
-			{
-				PAINTSTRUCT ps;
-				HDC hdc = BeginPaint(hWnd, &ps);
-				if(hdc == nullptr) {
-					throw WinError(L"WindowClass: Failed to obtain a device context to paint on");
-				}
-				Window *self = get_window(hWnd);
-				self->on_paint(hdc, ps);
-				EndPaint(hWnd, &ps);
-			}
-			return 0;
-		case WM_LBUTTONDOWN:
-			mouse_btn = 1;
-		case WM_RBUTTONDOWN:
-			mouse_btn = 2;
-			x = GET_X_LPARAM(lParam);
-			y = GET_Y_LPARAM(lParam);
-			{
-				Window *self = get_window(hWnd);
-				if(self->drag_enabled()) {
-					self->grab_focus();
-				}
-				self->on_mouse_down(mouse_btn, x, y);
-			}
-			return 0;
-		case WM_LBUTTONUP:
-			mouse_btn = 1;
-		case WM_RBUTTONUP:
-			mouse_btn = 2;
-			x = GET_X_LPARAM(lParam);
-			y = GET_Y_LPARAM(lParam);
-			{
-				Window *self = get_window(hWnd);
-				if(self->drag_enabled() && self->has_focus()) {
-					self->release_focus();
-				}
-				self->on_mouse_up(mouse_btn, x, y);
-			}
-			return 0;
-		case WM_MOUSEMOVE:
-			x = GET_X_LPARAM(lParam);
-			y = GET_Y_LPARAM(lParam);
-			{
-				Window *self = get_window(hWnd);
-				if(self->drag_enabled() && self->has_focus()) {
-					self->on_drag(x, y);
-				} else {
-					self->on_mouse_move(x, y);
-				}
-			}
-			return 0;
-		case WM_SETCURSOR:
-			if(LOWORD(lParam) == HTCLIENT) {
-				Window *self = get_window(hWnd);
-				self->assign_cursor();
+		try {
+			int mouse_btn = 0, x = 0, y = 0;
+			switch(uMsg) {
+			case WM_CREATE:
+				store_window(hWnd, lParam);
+				return TRUE;
+			case WM_DESTROY:
+				PostQuitMessage(0);
 				return 0;
+			case WM_SIZE:
+				{
+					Window *self = get_window(hWnd);
+					self->on_resize(wParam, static_cast<int>(LOWORD(lParam)), static_cast<int>(HIWORD(lParam)));
+				}
+				return 0;
+			case WM_PAINT:
+				{
+					PAINTSTRUCT ps;
+					HDC hdc = BeginPaint(hWnd, &ps);
+					if(hdc == nullptr) {
+						throw WinError(L"WindowClass: Failed to obtain a device context to paint on");
+					}
+					Window *self = get_window(hWnd);
+					self->on_paint(hdc, ps);
+					EndPaint(hWnd, &ps);
+				}
+				return 0;
+			case WM_LBUTTONDOWN:
+				mouse_btn = 1;
+			case WM_RBUTTONDOWN:
+				mouse_btn = 2;
+				x = GET_X_LPARAM(lParam);
+				y = GET_Y_LPARAM(lParam);
+				{
+					Window *self = get_window(hWnd);
+					if(self->drag_enabled()) {
+						self->grab_focus();
+					}
+					self->on_mouse_down(mouse_btn, x, y);
+				}
+				return 0;
+			case WM_LBUTTONUP:
+				mouse_btn = 1;
+			case WM_RBUTTONUP:
+				mouse_btn = 2;
+				x = GET_X_LPARAM(lParam);
+				y = GET_Y_LPARAM(lParam);
+				{
+					Window *self = get_window(hWnd);
+					if(self->drag_enabled() && self->has_focus()) {
+						self->release_focus();
+					}
+					self->on_mouse_up(mouse_btn, x, y);
+				}
+				return 0;
+			case WM_MOUSEMOVE:
+				x = GET_X_LPARAM(lParam);
+				y = GET_Y_LPARAM(lParam);
+				{
+					Window *self = get_window(hWnd);
+					if(self->drag_enabled() && self->has_focus()) {
+						self->on_drag(x, y);
+					} else {
+						self->on_mouse_move(x, y);
+					}
+				}
+				return 0;
+			case WM_SETCURSOR:
+				if(LOWORD(lParam) == HTCLIENT) {
+					Window *self = get_window(hWnd);
+					self->assign_cursor();
+					return 0;
+				}
+				break;
 			}
-			break;
+		} catch(const std::exception&) {
+			Window *self = get_window(hWnd);
+			self->register_exception(std::current_exception());
 		}
 		return DefWindowProc(hWnd, uMsg, wParam, lParam);
 	}
 	
-	WindowClass::WindowClass(HINSTANCE hInstance, WNDPROC proc, const std::wstring& n) 
+	WindowClass::WindowClass(App& app, WNDPROC proc, const std::wstring& n) 
 	: m_class{},
-	  m_module(hInstance),
+	  m_app(&app),
 	  m_name(n),
 	  m_class_handle(0) {
 		m_class.lpfnWndProc = proc;
-		m_class.hInstance = m_module;
+		m_class.hInstance = m_app->module();
 		m_class.lpszClassName = m_name.c_str();
 		m_class_handle = RegisterClass(&m_class);
 		if(m_class_handle == 0) {
@@ -107,11 +112,11 @@ namespace shadertest {
 		}
 	}
 	
-	WindowClass::WindowClass(HINSTANCE hInstance, const std::wstring& n) : WindowClass(hInstance, WindowProc, n) {}
+	WindowClass::WindowClass(App& app, const std::wstring& n) : WindowClass(app, WindowProc, n) {}
 
 	WindowClass::~WindowClass() {
 		if(m_class_handle != 0) {
-			UnregisterClass(reinterpret_cast<LPCWSTR>(m_class_handle), m_module);
+			UnregisterClass(reinterpret_cast<LPCWSTR>(m_class_handle), m_app->module());
 		}
 	}
 
@@ -123,8 +128,12 @@ namespace shadertest {
 		return m_class_handle;
 	}
 
-	HINSTANCE WindowClass::module() const {
-		return m_module;
+	App& WindowClass::app() {
+		return *m_app;
+	}
+	
+	void WindowClass::register_exception(const std::exception_ptr& ex) {
+		m_app->register_exception(ex);
 	}
 	
 	Child::Child() : win(nullptr), h_expand(false), v_expand(false) {}
@@ -153,7 +162,7 @@ namespace shadertest {
 	  m_parent(parent),
 	  m_cursor(nullptr) {
 		if(s_class == nullptr) {
-			s_class = std::make_unique<WindowClass>(app.module());
+			s_class = std::make_unique<WindowClass>(app);
 		}
 		m_handle = CreateWindowEx(
 			0,
@@ -164,7 +173,7 @@ namespace shadertest {
 			m_min_width, m_min_height,
 			(m_parent ? m_parent->handle() : nullptr),
 			nullptr,
-			s_class->module(),
+			s_class->app().module(),
 			this
 		);
 		if(m_handle == nullptr) {
@@ -187,6 +196,10 @@ namespace shadertest {
 		if(m_handle != nullptr) {
 			DestroyWindow(m_handle);
 		}
+	}
+	
+	void Window::register_exception(const std::exception_ptr& ex) {
+		s_class->register_exception(ex);
 	}
 
 	const std::wstring& Window::name() const {
